@@ -1,5 +1,5 @@
 import { ALLOWED_EXTENSIONS, MAX_FILE_SIZE, getExtension, parseFile } from "@/lib/parsers";
-import { requireUser } from "@/lib/supabase/server";
+import { requireAppAccess } from "@/lib/supabase/server";
 import {
   IMAGE_MIME_BY_EXT,
   getCurrentVisionModel,
@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const { supabase, user } = await requireUser();
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  const { supabase, authorized } = await requireAppAccess();
+  if (!authorized) {
+    return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
   const form = await request.formData();
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       }
 
       const buffer = Buffer.from(await file.arrayBuffer());
-      const storagePath = `${user.id}/${Date.now()}-${file.name}`;
+      const storagePath = `uploads/${Date.now()}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
@@ -77,7 +77,6 @@ export async function POST(request: Request) {
           storage_path: storagePath,
           status: parseError ? "failed" : status,
           parse_error: parseError,
-          created_by: user.id,
         })
         .select("id")
         .single();

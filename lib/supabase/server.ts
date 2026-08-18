@@ -1,39 +1,28 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { ACCESS_COOKIE, verifyToken } from "@/lib/auth";
 
-export async function createClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
+/**
+ * 单密码模式：服务端使用 service role key 访问数据库（绕过 RLS，
+ * 访问控制由 APP_ACCESS_PASSWORD 单密码 + 中间件统一把关）。
+ */
+export async function createClient(): Promise<SupabaseClient> {
+  return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // 服务端组件中调用 setAll 会抛错，忽略即可（middleware 已负责刷新）
-          }
-        },
-      },
-    },
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
 
-export async function requireUser() {
+export async function isAuthorized(): Promise<boolean> {
+  const password = process.env.APP_ACCESS_PASSWORD;
+  if (!password) return false;
+  const cookieStore = await cookies();
+  return verifyToken(cookieStore.get(ACCESS_COOKIE)?.value, password);
+}
+
+export async function requireAppAccess() {
   const supabase = await createClient();
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return { supabase, user };
-  } catch {
-    return { supabase, user: null };
-  }
+  const authorized = await isAuthorized();
+  return { supabase, authorized };
 }

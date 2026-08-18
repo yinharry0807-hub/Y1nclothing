@@ -1,12 +1,12 @@
-import { requireUser } from "@/lib/supabase/server";
+import { requireAppAccess } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { supabase, user } = await requireUser();
-  if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+  const { supabase, authorized } = await requireAppAccess();
+  if (!authorized) return NextResponse.json({ error: "未授权" }, { status: 401 });
   const { id } = await params;
   const body = await request.json();
 
@@ -44,8 +44,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { supabase, user } = await requireUser();
-  if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+  const { supabase, authorized } = await requireAppAccess();
+  if (!authorized) return NextResponse.json({ error: "未授权" }, { status: 401 });
   const { id } = await params;
   const { error } = await supabase.from("fabric_info").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

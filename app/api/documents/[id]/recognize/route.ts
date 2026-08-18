@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/supabase/server";
+import { requireAppAccess } from "@/lib/supabase/server";
 import {
   IMAGE_MIME_BY_EXT,
   getCurrentVisionModel,
@@ -16,8 +16,8 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { supabase, user } = await requireUser();
-  if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+  const { supabase, authorized } = await requireAppAccess();
+  if (!authorized) return NextResponse.json({ error: "未授权" }, { status: 401 });
   const { id } = await params;
 
   const { data: doc } = await supabase

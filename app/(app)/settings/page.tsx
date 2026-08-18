@@ -37,9 +37,6 @@ function EnvRow({
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   // 连接与数据量检测
   const [stylesCount, documentsCount, auditRows, visionModel] = await Promise.all([
@@ -71,6 +68,19 @@ export default async function SettingsPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
           !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes("placeholder"),
       ),
+      hint: "单密码模式下可选（服务端用 service key）",
+    },
+    {
+      label: "Supabase service key",
+      value: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+      configured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      hint: "必填：单密码模式下服务端用此密钥读写数据",
+    },
+    {
+      label: "访问密码 APP_ACCESS_PASSWORD",
+      value: process.env.APP_ACCESS_PASSWORD ?? "",
+      configured: Boolean(process.env.APP_ACCESS_PASSWORD),
+      hint: "登录页输入此密码进入",
     },
     {
       label: "DeepSeek API Key",
@@ -97,7 +107,7 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-xl font-bold text-slate-900">设置</h1>
         <p className="mt-1 text-sm text-slate-500">
-          当前登录：{user?.email} · 所有增删改均写入审计日志，可随时回看。
+          访问模式：单密码（仅你使用）· 所有增删改均写入审计日志，可随时回看。
         </p>
       </div>
 

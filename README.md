@@ -31,7 +31,7 @@
 │   │   ├── fabrics/                # 面料增删改
 │   │   ├── accessories/            # 辅料增删改（含追踪状态）
 │   │   └── documents/[id]/download/# 原文件下载（签名 URL）
-│   ├── login/                      # 登录/注册页
+│   ├── login/                      # 单密码访问页
 │   └── (app)/                      # 工作台（侧边栏 + 顶部搜索）
 │       ├── dashboard/              # 工作台首页
 │       ├── upload/                 # 资料导入
@@ -62,7 +62,8 @@ cp .env.example .env   # Windows 用 copy .env.example .env
 npm run dev
 ```
 
-打开 http://localhost:3000，先注册账号（需 Supabase 开启 Email 注册），再登录。
+打开 http://localhost:3000，输入访问密码（`.env` 里的 `APP_ACCESS_PASSWORD`）即可进入。
+无需注册账号——网站是单密码模式，只给你一个人用。
 
 > 项目里的 `.env` 目前是占位值，**必须先配置真实的 Supabase 信息**（见下），否则登录页无法工作。
 
@@ -74,11 +75,15 @@ npm run dev
 2. 进入项目 → **SQL Editor** → 粘贴 `supabase/schema.sql` 全部内容 → **Run**。
    - 脚本会创建 9 张业务表 + `audit_log` + 大货进度节点表、RLS 安全策略、审计触发器、`documents` 存储桶、模糊检索索引。
 3. 进入 **Settings → API**，复制：
-   - `Project URL` → 填入 `.env` 的 `NEXT_PUBLIC_SUPABASE_URL`
-   - `anon public` → 填入 `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `service_role`（仅本地批量导入脚本用）→ 填入 `SUPABASE_SERVICE_ROLE_KEY`
-4. 进入 **Authentication → Providers → Email**，确认 **Enable Sign up** 已打开（单人使用建议保留；若关闭注册，先用第一个账号注册完成后再关）。
-5. 重新 `npm run dev`，注册登录，工作台即可使用。
+   - `Project URL` → 填入 `.env` 的 `NEXT_PUBLIC_SUPABASE_URL`（注意：是 Project URL，不是项目名字）
+   - `Publishable key` → 填入 `NEXT_PUBLIC_SUPABASE_ANON_KEY`（可选）
+   - `Secret key` → 填入 `SUPABASE_SERVICE_ROLE_KEY`（必填：单密码模式下服务端用此密钥读写数据）
+4. 在 `.env` 里设置 `APP_ACCESS_PASSWORD=你的访问密码`（登录页输入它进入）。
+5. 重新 `npm run dev`，输入访问密码即可使用。
+
+> 说明：本工作台为单密码模式（不再需要注册账号）。数据库访问走服务端
+> `SUPABASE_SERVICE_ROLE_KEY`，访问控制由 `APP_ACCESS_PASSWORD` 统一把关；
+> Supabase 的 RLS 策略保留作为第二道防线。
 
 ### 把桌面资料一键导入云端（可选，强烈推荐）
 
@@ -155,7 +160,9 @@ git push -u origin main
 3. 构建设置保持默认即可——Netlify 会自动识别 Next.js，项目里的 `netlify.toml` 已配置好
    构建命令（`npm run build`）和 Node 版本，无需手动改。
 4. 部署完成后，进 **Site configuration → Environment variables**，添加与本地 `.env` 相同的一组变量：
-   - `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`（Publishable key）
+   - `NEXT_PUBLIC_SUPABASE_URL`（注意：是 Project URL，不是项目名字）
+   - `SUPABASE_SERVICE_ROLE_KEY`（Secret key，必填）
+   - `APP_ACCESS_PASSWORD`（你的访问密码，必填）
    - `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`（阶段2）
    - `VISION_MODEL_API_KEY`、`VISION_MODEL_BASE_URL`、`VISION_MODEL_NAME`（GLM 视觉）
    - `NEXT_PUBLIC_APP_NAME`

@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/supabase/server";
+import { requireAppAccess } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +8,9 @@ function sanitize(q: string): string {
 }
 
 export async function GET(request: Request) {
-  const { supabase, user } = await requireUser();
-  if (!user) {
-    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  const { supabase, authorized } = await requireAppAccess();
+  if (!authorized) {
+    return NextResponse.json({ error: "未授权" }, { status: 401 });
   }
 
   const url = new URL(request.url);

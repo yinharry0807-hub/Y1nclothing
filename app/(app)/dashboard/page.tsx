@@ -43,10 +43,6 @@ export default async function DashboardPage() {
         .limit(6),
     ]);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const pendingVision =
     docs.data?.filter((d) => d.status === "vision_pending").length ?? 0;
 
@@ -56,7 +52,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">工作台</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {user?.email} · 数据实时同步云端，所有修改自动留档
+            单密码访问模式 · 数据实时同步云端，所有修改自动留档
           </p>
         </div>
         <div className="flex gap-2">

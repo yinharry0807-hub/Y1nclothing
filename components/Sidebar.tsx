@@ -15,7 +15,6 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "工作台", icon: LayoutDashboard },
@@ -41,8 +40,7 @@ export function Sidebar({
   const router = useRouter();
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch("/api/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
   }

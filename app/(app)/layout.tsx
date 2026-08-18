@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/AppShell";
-import { createClient } from "@/lib/supabase/server";
+import { isAuthorized } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function AppLayout({
@@ -7,18 +7,8 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  let user: { id: string; email?: string } | null = null;
-  try {
-    const {
-      data: { user: u },
-    } = await supabase.auth.getUser();
-    user = u;
-  } catch {
-    user = null;
-  }
+  const authorized = await isAuthorized();
+  if (!authorized) redirect("/login");
 
-  if (!user) redirect("/login");
-
-  return <AppShell userEmail={user.email ?? undefined}>{children}</AppShell>;
+  return <AppShell>{children}</AppShell>;
 }

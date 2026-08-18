@@ -1,9 +1,9 @@
-import { requireUser } from "@/lib/supabase/server";
+import { requireAppAccess } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const { supabase, user } = await requireUser();
-  if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+  const { supabase, authorized } = await requireAppAccess();
+  if (!authorized) return NextResponse.json({ error: "未授权" }, { status: 401 });
 
   const body = await request.json();
   const style_no = String(body.style_no ?? "").trim();
@@ -24,7 +24,6 @@ export async function POST(request: Request) {
       notes: body.notes || null,
       image_url: body.image_url || null,
       document_id: body.document_id || null,
-      created_by: user.id,
     })
     .select("id")
     .single();
