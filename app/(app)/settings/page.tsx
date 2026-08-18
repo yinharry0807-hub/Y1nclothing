@@ -203,8 +203,8 @@ export default async function SettingsPage() {
         <h2 className="mb-2 text-sm font-semibold text-slate-900">部署提示</h2>
         1. 在 Supabase 执行 supabase/schema.sql，获取 URL 与 anon key 填入 .env；<br />
         2. 推送到 GitHub 仓库；<br />
-        3. 在 Vercel 导入该仓库，填写同样的环境变量，自动部署即生效——以后每次推送 GitHub，
-        Vercel 自动更新，多设备访问同一网址即数据同步。<br />
+        3. 在 Zeabur / Netlify / Vercel 任一平台导入该仓库，填写同样的环境变量，自动部署即生效——
+        以后每次推送 GitHub 自动更新，多设备访问同一网址即数据同步。<br />
         详细步骤见项目 README。
       </section>
     </div>

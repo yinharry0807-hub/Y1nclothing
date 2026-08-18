@@ -1,5 +1,4 @@
-# pnpm 11 项目级设置（C 盘空间不足，store 固定在 D 盘）
-storeDir: D:\tools\garment-workbench\pnpm-store
+# pnpm 11 项目级设置（可随仓库上传，云端/本地通用）
 
 # 自动修复依赖状态时无需交互确认（无 TTY/CI 环境）
 confirmModulesPurge: false

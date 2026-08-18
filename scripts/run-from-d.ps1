@@ -28,6 +28,8 @@ Set-Location $dst
 if (-not (Test-Path -LiteralPath "$dst\node_modules")) {
   Write-Host "首次运行：安装依赖（pnpm，包实体存 D 盘 store）..."
   $env:CI = "true"
+  # 本地包 store 固定在 D 盘（C 盘空间不足；此配置只在本机脚本生效，不随仓库上传）
+  $env:pnpm_config_store_dir = "D:\tools\garment-workbench\pnpm-store"
   pnpm install
   if ($LASTEXITCODE -ne 0) {
     Write-Host "依赖安装失败。请先安装 pnpm：npm install -g pnpm" -ForegroundColor Red

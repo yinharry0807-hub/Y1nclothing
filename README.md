@@ -136,35 +136,44 @@ VISION_MODEL_NAME=glm-4v-flash
 
 ---
 
-## 五、GitHub + Vercel 自动部署
+## 五、GitHub + 自动部署（没有外国手机号也能部署）
 
 ### 1. 推送到 GitHub
 
 ```bash
-git init
-git add .
-git commit -m "服装跟单智能工作台 阶段1"
 git branch -M main
 git remote add origin https://github.com/你的用户名/你的仓库名.git
 git push -u origin main
 ```
 
-（也可以在 GitHub 网页新建空仓库后执行以上命令；`.env` 已被 .gitignore，不会上传密钥。）
+（代码已在本机提交好；仓库是新建的空仓库时，执行上面三条即可推送。`.env` 已被 .gitignore，不会上传密钥。）
 
-### 2. 连接 Vercel 自动部署
+### 2. 推荐：Zeabur 自动部署（中文界面，GitHub 登录，免手机验证）
 
-1. 打开 [vercel.com](https://vercel.com) → **Add New → Project** → 导入你的 GitHub 仓库。
-2. 框架会自动识别 Next.js，无需修改构建命令。
-3. 在 **Environment Variables** 中填写与本地 `.env` 相同的变量：
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `DEEPSEEK_API_KEY`（阶段2）
-   - `VISION_MODEL_API_KEY` / `VISION_MODEL_BASE_URL` / `VISION_MODEL_NAME`（阶段5）
+1. 打开 [zeabur.com](https://zeabur.com)，用 **GitHub 账号**登录（不要求外国手机号）。
+2. 新建项目 → 选择"部署你的 GitHub 仓库" → 授权并选择你的工作台仓库。
+3. 平台自动识别 Next.js 并开始构建（构建 `pnpm build`、启动 `pnpm start`，项目已配置好）。
+4. 构建成功后，在项目 **变量（Variables）** 里逐个添加与本地 `.env` 相同的环境变量：
+   - `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`（Publishable key）
+   - `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`（阶段2）
+   - `VISION_MODEL_API_KEY`、`VISION_MODEL_BASE_URL`、`VISION_MODEL_NAME`（GLM 视觉）
    - `NEXT_PUBLIC_APP_NAME`
-4. 点击 **Deploy**。部署完成后得到一个正式网址（如 `https://xxx.vercel.app`）。
+5. 添加 **公网域名**：Zeabur 免费提供 `*.zeabur.app` 域名，也可以绑定自己的域名。
 
-**以后每次更新**：本地改完代码 → `git push`，Vercel 检测到推送自动重新部署，
-手机和电脑访问同一网址即数据同步（数据在 Supabase 云端，与浏览器缓存无关）。
+以后每次 `git push`，Zeabur 自动重新部署，手机和电脑访问同一网址即数据同步。
+
+### 3. 备选：Netlify（同样支持 GitHub 自动部署）
+
+1. 打开 [netlify.com](https://netlify.com) → 用 GitHub 登录 → **Add new site → Import an existing project**。
+2. 选择仓库，构建命令保持自动（Next.js 会自动识别）。
+3. 在 **Site settings → Environment variables** 里添加与上面相同的一组环境变量。
+
+### 4. 以后想用 Vercel 也可以
+
+代码完全兼容 Vercel，等有外国手机号（或借朋友的）注册后再导入同一仓库即可，
+在 Vercel 的 **Environment Variables** 里填同样一组变量，无需改代码。
+
+> 数据都在 Supabase 云端，换任何托管平台都不影响已有数据；换平台只是换一个"访问入口"。
 
 ---
 
