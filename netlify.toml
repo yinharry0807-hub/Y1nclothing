@@ -1,7 +1,7 @@
 # Netlify 免费部署配置（GitHub 登录，无需手机验证）
 [build]
-  # Netlify 构建环境不保证自带 pnpm，先装好再构建
-  command = "npm install -g pnpm@11.19.0 && pnpm build"
+  # Netlify 构建环境已自带 pnpm，直接构建
+  command = "pnpm build"
 
 [build.environment]
   NODE_VERSION = "22"
