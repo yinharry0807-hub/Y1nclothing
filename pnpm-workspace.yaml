@@ -1,9 +1,0 @@
-# pnpm 11 项目级设置（可随仓库上传，云端/本地通用）
-
-# 自动修复依赖状态时无需交互确认（无 TTY/CI 环境）
-confirmModulesPurge: false
-
-# 仅允许这两个包执行构建脚本（esbuild 平台二进制、sharp 图片优化）
-allowBuilds:
-  esbuild: true
-  sharp: true

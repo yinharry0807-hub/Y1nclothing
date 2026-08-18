@@ -1,7 +1,7 @@
 # Netlify 免费部署配置（GitHub 登录，无需手机验证）
 [build]
-  # Netlify 构建环境已自带 pnpm，直接构建
-  command = "pnpm build"
+  # 使用 npm（Netlify 的 Next.js 运行时对 npm 兼容最稳定）
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "22"

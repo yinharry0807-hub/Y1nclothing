@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "description": "服装跟单智能工作台 - 云端跟单资料库 + AI 智能助手",
-  "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

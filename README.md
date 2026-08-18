@@ -153,7 +153,7 @@ git push -u origin main
 1. 打开 [netlify.com](https://netlify.com)，点 **Sign up**，选 **GitHub** 登录（授权后直接进后台，不要求手机号、不要求绑卡）。
 2. 点 **Add new site → Import an existing project** → 选你的工作台仓库（需要先授权 Netlify 访问该仓库）。
 3. 构建设置保持默认即可——Netlify 会自动识别 Next.js，项目里的 `netlify.toml` 已配置好
-   构建命令（`pnpm build`）和 Node 版本，无需手动改。
+   构建命令（`npm run build`）和 Node 版本，无需手动改。
 4. 部署完成后，进 **Site configuration → Environment variables**，添加与本地 `.env` 相同的一组变量：
    - `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`（Publishable key）
    - `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`（阶段2）

@@ -26,13 +26,13 @@ if ($LASTEXITCODE -ge 8) {
 Set-Location $dst
 
 if (-not (Test-Path -LiteralPath "$dst\node_modules")) {
-  Write-Host "首次运行：安装依赖（pnpm，包实体存 D 盘 store）..."
+  Write-Host "首次运行：安装依赖（npm，缓存与依赖都在 D 盘）..."
   $env:CI = "true"
-  # 本地包 store 固定在 D 盘（C 盘空间不足；此配置只在本机脚本生效，不随仓库上传）
-  $env:pnpm_config_store_dir = "D:\tools\garment-workbench\pnpm-store"
-  pnpm install
+  # npm 缓存固定在 D 盘（C 盘空间不足；此配置只在本机脚本生效，不随仓库上传）
+  $env:npm_config_cache = "D:\tools\garment-workbench\npm-cache"
+  npm install
   if ($LASTEXITCODE -ne 0) {
-    Write-Host "依赖安装失败。请先安装 pnpm：npm install -g pnpm" -ForegroundColor Red
+    Write-Host "依赖安装失败" -ForegroundColor Red
     exit 1
   }
 }
@@ -40,9 +40,10 @@ if (-not (Test-Path -LiteralPath "$dst\node_modules")) {
 $mode = $args[0]
 if ($mode -eq "build") {
   $env:CI = "true"
-  pnpm run build
+  $env:npm_config_cache = "D:\tools\garment-workbench\npm-cache"
+  npm run build
 } elseif ($mode -eq "start") {
-  pnpm start
+  npm start
 } else {
-  pnpm dev
+  npm run dev
 }
