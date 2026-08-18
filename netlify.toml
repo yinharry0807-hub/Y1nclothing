@@ -1,0 +1,6 @@
+# Netlify 免费部署配置（GitHub 登录，无需手机验证）
+[build]
+  command = "pnpm build"
+
+[build.environment]
+  NODE_VERSION = "22"

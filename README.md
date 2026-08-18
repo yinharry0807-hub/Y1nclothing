@@ -148,30 +148,36 @@ git push -u origin main
 
 （代码已在本机提交好；仓库是新建的空仓库时，执行上面三条即可推送。`.env` 已被 .gitignore，不会上传密钥。）
 
-### 2. 推荐：Zeabur 自动部署（中文界面，GitHub 登录，免手机验证）
+### 2. 推荐：Netlify 免费部署（GitHub 登录，不用手机号，不用付费）
 
-1. 打开 [zeabur.com](https://zeabur.com)，用 **GitHub 账号**登录（不要求外国手机号）。
-2. 新建项目 → 选择"部署你的 GitHub 仓库" → 授权并选择你的工作台仓库。
-3. 平台自动识别 Next.js 并开始构建（构建 `pnpm build`、启动 `pnpm start`，项目已配置好）。
-4. 构建成功后，在项目 **变量（Variables）** 里逐个添加与本地 `.env` 相同的环境变量：
+1. 打开 [netlify.com](https://netlify.com)，点 **Sign up**，选 **GitHub** 登录（授权后直接进后台，不要求手机号、不要求绑卡）。
+2. 点 **Add new site → Import an existing project** → 选你的工作台仓库（需要先授权 Netlify 访问该仓库）。
+3. 构建设置保持默认即可——Netlify 会自动识别 Next.js，项目里的 `netlify.toml` 已配置好
+   构建命令（`pnpm build`）和 Node 版本，无需手动改。
+4. 部署完成后，进 **Site configuration → Environment variables**，添加与本地 `.env` 相同的一组变量：
    - `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`（Publishable key）
    - `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`（阶段2）
    - `VISION_MODEL_API_KEY`、`VISION_MODEL_BASE_URL`、`VISION_MODEL_NAME`（GLM 视觉）
    - `NEXT_PUBLIC_APP_NAME`
-5. 添加 **公网域名**：Zeabur 免费提供 `*.zeabur.app` 域名，也可以绑定自己的域名。
+5. 添加变量后 **重新部署一次**（Deploys 页面点 Redeploy），网站即可正常使用，得到 `https://xxx.netlify.app` 网址。
 
-以后每次 `git push`，Zeabur 自动重新部署，手机和电脑访问同一网址即数据同步。
+以后每次 `git push`，Netlify 自动重新部署，手机和电脑访问同一网址即数据同步。
+免费额度：每月 300 分钟构建 + 100GB 流量，个人跟单使用完全够。
 
-### 3. 备选：Netlify（同样支持 GitHub 自动部署）
+### 3. 兜底方案：电脑自己跑 + 免费内网穿透（零成本，不依赖国外平台）
 
-1. 打开 [netlify.com](https://netlify.com) → 用 GitHub 登录 → **Add new site → Import an existing project**。
-2. 选择仓库，构建命令保持自动（Next.js 会自动识别）。
-3. 在 **Site settings → Environment variables** 里添加与上面相同的一组环境变量。
+如果不想注册任何国外平台，也可以让电脑当服务器：
 
-### 4. 以后想用 Vercel 也可以
+1. 在电脑上运行 `powershell -ExecutionPolicy Bypass -File scripts\run-from-d.ps1`（默认启动开发模式）。
+2. 手机和电脑连**同一个 Wi-Fi** 时，手机浏览器直接访问电脑局域网地址（脚本启动时会显示 `http://192.168.x.x:3000`）。
+3. 出门在外想访问，装一个免费内网穿透工具（cpolar、花生壳任选其一），把本地 3000 端口映射到一个公网网址。
 
-代码完全兼容 Vercel，等有外国手机号（或借朋友的）注册后再导入同一仓库即可，
-在 Vercel 的 **Environment Variables** 里填同样一组变量，无需改代码。
+缺点：电脑要开着才访问得到；适合作为临时兜底。
+
+### 4. 以后想用 Vercel / Zeabur 也可以
+
+代码完全兼容 Vercel 和 Zeabur，以后有外国手机号或愿意付费时，把同一仓库导入、
+填同样一组变量即可，无需改代码。
 
 > 数据都在 Supabase 云端，换任何托管平台都不影响已有数据；换平台只是换一个"访问入口"。
 
