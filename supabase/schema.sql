@@ -241,6 +241,8 @@ create table if not exists public.preproduction (
   colorway    text,
   quantity    integer,
   sample_date date,
+  progress    text,                -- 产前版进度：待排期/剪版/车版/试缩水/洗水/寄板/客户批核/通过/返修
+  fabric_summary text,             -- 面辅料整理
   notes       text,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
