@@ -9,7 +9,7 @@ export async function GET() {
   if (!authorized) return NextResponse.json({ error: "未授权" }, { status: 401 });
   const { data, error } = await supabase
     .from("preproduction")
-    .select("*, styles(style_no,style_name)")
+    .select("*, styles(style_no,style_name,image_url)")
     .order("sample_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(500);

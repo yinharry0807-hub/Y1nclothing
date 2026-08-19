@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "import:folder": "tsx --env-file=.env scripts/import-folder.ts",
-    "structured:import": "tsx --env-file=.env scripts/structured-import.ts"
+    "structured:import": "tsx --env-file=.env scripts/structured-import.ts",
+    "import:overview": "tsx --env-file=.env scripts/import-progress-overview.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

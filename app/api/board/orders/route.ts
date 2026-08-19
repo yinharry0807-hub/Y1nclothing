@@ -57,7 +57,7 @@ export async function GET() {
 
   const { data: orders, error: orderErr } = await supabase
     .from("orders")
-    .select("*, styles(style_no,style_name,brand,customer)")
+    .select("*, styles(style_no,style_name,brand,customer,image_url)")
     .order("order_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(500);
@@ -138,6 +138,7 @@ export async function GET() {
       styleNo: style.style_no ?? o.style_no ?? "—",
       styleName: style.style_name ?? null,
       brand: style.brand ?? null,
+      imageUrl: style.image_url ?? null,
       poNo: o.po_no ?? null,
       orderNo: o.order_no ?? null,
       fit: o.fit ?? null,

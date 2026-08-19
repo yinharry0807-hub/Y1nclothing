@@ -1,6 +1,7 @@
 "use client";
 
 import { EditableCell } from "@/components/EditableCell";
+import { ImageCell } from "@/components/ImageCell";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Plus, Printer, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -11,12 +12,14 @@ type OrderRow = {
   styleId: string;
   styleNo: string;
   styleName: string | null;
+  imageUrl: string | null;
   poNo: string | null;
   orderNo: string | null;
   fit: string | null;
   colorway: string | null;
   quantity: number | null;
   targetQty: number | null;
+  actualQty: number | null;
   sizeBreakdown: Record<string, number> | null;
   orderDate: string | null;
   deliveryDate: string | null;
@@ -45,7 +48,6 @@ type OrderRow = {
   }>;
   accessoriesReady: boolean;
   accessoriesMissing: string[];
-  accessoriesSummary: string;
   stage: string;
   milestones: Array<{ id: string; node: string; status: string; plannedTime: string | null; note: string | null }>;
 };
@@ -61,13 +63,13 @@ type PreRow = {
   progress: string | null;
   fabric_summary: string | null;
   notes: string | null;
-  styles?: Array<{ style_no: string; style_name: string | null }>;
+  styles?: Array<{ style_no: string; style_name: string | null; image_url: string | null }>;
 };
 
 const TRACK_OPTIONS = ["未下单", "已下单", "在途", "已到货"];
 const MILESTONE_STATUS = ["待开始", "进行中", "已完成"];
 const PROGRESS_OPTIONS = ["待排期", "剪版", "车版", "试缩水", "洗水", "寄板", "客户批核", "通过", "返修"];
-const VERSION_OPTIONS = ["第一次版", "第二次版", "第三次版", "第四次版", "第五次版"];
+const VERSION_OPTIONS = ["第一次版", "第二次版", "第三次版", "第四次版", "第五次版", "开发板", "开发板第二次"];
 const ORDER_STATUS = ["草稿", "生产中", "已完成", "已取消"];
 const RISK_OPTIONS = ["低", "中", "中高", "高", "正常"];
 
@@ -90,10 +92,7 @@ function textToSize(t: string): Record<string, number> | null {
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...init });
   if (!res.ok) throw new Error(await res.text().then((t) => t.slice(0, 120)));
   return res.json() as Promise<T>;
 }
@@ -125,7 +124,7 @@ function ReadyBadge({ ready, missing }: { ready: boolean; missing: string[] }) {
     </span>
   ) : (
     <span className="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20" title={missing.join("；")}>
-      ⚠️ 差 {missing.length} 项
+      ⚠️ 差 {missing.length}
     </span>
   );
 }
@@ -141,7 +140,13 @@ function OrderBoard() {
     setError("");
     try {
       const res = await api<{ rows: OrderRow[] }>("/api/board/orders");
-      setRows(res.rows ?? []);
+      // 按 PO 号从小到大排序（数字越小越早下单）
+      const sorted = [...(res.rows ?? [])].sort((a, b) => {
+        const na = Number(a.poNo ?? "0") || 0;
+        const nb = Number(b.poNo ?? "0") || 0;
+        return na - nb;
+      });
+      setRows(sorted);
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -165,7 +170,6 @@ function OrderBoard() {
     },
     [load],
   );
-
   const saveAccessory = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
       try {
@@ -178,7 +182,6 @@ function OrderBoard() {
     },
     [load],
   );
-
   const saveMilestone = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
       try {
@@ -200,71 +203,79 @@ function OrderBoard() {
       return next;
     });
 
+  const th = "border border-slate-300 bg-slate-100 px-2 py-2 text-left text-[11px] font-semibold text-slate-600";
+  const td = "border border-slate-300 px-2 py-1.5 align-middle";
+
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-slate-500">
-          共 {rows.length} 张大货单 · 点击任意单元格直接在线修改，点击行首箭头展开辅料与进度明细
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-500">
+          共 {rows.length} 张大货单 · 按 PO 号从小到大（越早越靠上）· 点单元格直接改，点行首箭头展开辅料/进度明细 · 点图片格上传款式图
         </p>
         <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> 刷新
         </button>
       </div>
       {error && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div>}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200 text-xs">
-          <thead className="sticky top-0 bg-slate-50">
-            <tr className="text-left text-slate-500">
-              <th className="px-2 py-2"></th>
-              <th className="px-2 py-2 font-medium">下单时间</th>
-              <th className="px-2 py-2 font-medium">款号</th>
-              <th className="px-2 py-2 font-medium">颜色</th>
-              <th className="px-2 py-2 font-medium">PO</th>
-              <th className="px-2 py-2 text-right font-medium">下单量</th>
-              <th className="px-2 py-2 text-right font-medium">目标裁数</th>
-              <th className="px-2 py-2 font-medium">尺码分布</th>
-              <th className="px-2 py-2 font-medium">货期</th>
-              <th className="px-2 py-2 font-medium">面料布号</th>
-              <th className="px-2 py-2 font-medium">面料颜色</th>
-              <th className="px-2 py-2 font-medium">朴色</th>
-              <th className="px-2 py-2 font-medium">袋布色</th>
-              <th className="px-2 py-2 font-medium">线(厂家/号)</th>
-              <th className="px-2 py-2 font-medium">辅料齐备</th>
-              <th className="px-2 py-2 font-medium">当前阶段</th>
-              <th className="px-2 py-2 font-medium">状态</th>
-              <th className="px-2 py-2 font-medium">打印</th>
+      <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              <th className={cn(th, "sticky left-0 z-20 min-w-[28px] text-center")}>#</th>
+              <th className={cn(th, "min-w-[44px]")}>图片</th>
+              <th className={cn(th, "sticky left-[72px] z-20 min-w-[120px]")}>款号</th>
+              <th className={cn(th, "sticky left-[192px] z-20 min-w-[110px]")}>颜色</th>
+              <th className={cn(th, "min-w-[78px]")}>PO</th>
+              <th className={cn(th, "min-w-[86px]")}>制单号</th>
+              <th className={cn(th, "min-w-[60px] text-right")}>下单量</th>
+              <th className={cn(th, "min-w-[60px] text-right")}>目标裁数</th>
+              <th className={cn(th, "min-w-[60px] text-right")}>实裁数</th>
+              <th className={cn(th, "min-w-[130px]")}>尺码分布</th>
+              <th className={cn(th, "min-w-[110px]")}>面料布号</th>
+              <th className={cn(th, "min-w-[70px]")}>面料颜色</th>
+              <th className={cn(th, "min-w-[60px]")}>朴色</th>
+              <th className={cn(th, "min-w-[60px]")}>袋布色</th>
+              <th className={cn(th, "min-w-[110px]")}>线(厂家/号)</th>
+              <th className={cn(th, "min-w-[76px]")}>辅料</th>
+              <th className={cn(th, "min-w-[200px]")}>生产进度</th>
+              <th className={cn(th, "min-w-[78px]")}>货期</th>
+              <th className={cn(th, "min-w-[120px]")}>欠/备注</th>
+              <th className={cn(th, "min-w-[72px]")}>阶段</th>
+              <th className={cn(th, "min-w-[70px]")}>状态</th>
+              <th className={cn(th, "min-w-[44px]")}>打印</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((r) => (
+          <tbody>
+            {rows.map((r, idx) => (
               <Fragment key={r.id}>
-                <tr className="hover:bg-slate-50/70">
-                  <td className="px-2 py-2">
-                    <button onClick={() => toggle(r.id)} className="rounded p-0.5 text-slate-400 hover:text-indigo-600">
-                      {expanded.has(r.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
+                <tr className={idx % 2 ? "bg-slate-50/60" : "bg-white"}>
+                  <td className={cn(td, "sticky left-0 z-10 bg-inherit text-center text-slate-400")}>{idx + 1}</td>
+                  <td className={td}>
+                    <ImageCell src={r.imageUrl} styleId={r.styleId} onUpdated={load} />
                   </td>
-                  <td className="px-2 py-2">
-                    <EditableCell type="date" value={r.orderDate} onSave={(v) => saveOrder(r.id, { order_date: v })} />
-                  </td>
-                  <td className="px-2 py-2">
+                  <td className={cn(td, "sticky left-[72px] z-10 bg-inherit")}>
                     <Link href={`/styles/${r.styleId}`} className="font-semibold text-indigo-600 hover:underline">
                       {r.styleNo}
                     </Link>
+                    {r.fit && <span className="ml-1 rounded bg-slate-100 px-1 text-[10px] text-slate-500">{r.fit}</span>}
                   </td>
-                  <td className="px-2 py-2">
+                  <td className={cn(td, "sticky left-[192px] z-10 bg-inherit")}>
                     <EditableCell value={r.colorway} onSave={(v) => saveOrder(r.id, { colorway: v })} />
                   </td>
-                  <td className="px-2 py-2">
-                    <EditableCell value={r.poNo} onSave={(v) => saveOrder(r.id, { po_no: v })} />
+                  <td className={cn(td, "font-medium text-slate-800")}>{r.poNo ?? "—"}</td>
+                  <td className={td}>
+                    <EditableCell value={r.orderNo} onSave={(v) => saveOrder(r.id, { order_no: v })} />
                   </td>
-                  <td className="px-2 py-2 text-right">
+                  <td className={cn(td, "text-right")}>
                     <EditableCell type="number" value={r.quantity} className="text-right" onSave={(v) => saveOrder(r.id, { quantity: v })} />
                   </td>
-                  <td className="px-2 py-2 text-right">
+                  <td className={cn(td, "text-right")}>
                     <EditableCell type="number" value={r.targetQty} className="text-right" onSave={(v) => saveOrder(r.id, { target_qty: v })} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className={cn(td, "text-right")}>
+                    <EditableCell type="number" value={r.actualQty} className="text-right" onSave={(v) => saveOrder(r.id, { actual_qty: v })} />
+                  </td>
+                  <td className={td}>
                     <EditableCell
                       value={sizeToText(r.sizeBreakdown)}
                       display={(v) => (v === "" || v == null ? "未填" : String(v))}
@@ -272,39 +283,48 @@ function OrderBoard() {
                       onSave={(v) => saveOrder(r.id, { size_breakdown: textToSize(String(v ?? "")) })}
                     />
                   </td>
-                  <td className="px-2 py-2">
-                    <EditableCell type="date" value={r.deliveryDate} onSave={(v) => saveOrder(r.id, { delivery_date: v })} />
+                  <td className={cn(td, "font-medium")}>{r.mainFabric?.code ?? "—"}</td>
+                  <td className={td}>{r.mainFabric?.colorway ?? "—"}</td>
+                  <td className={td}>{r.interlining?.colorway ?? "—"}</td>
+                  <td className={td}>{r.pocket?.colorway ?? "—"}</td>
+                  <td className={cn(td, "max-w-[150px]")} title={r.threadAcc?.notes ?? r.threadInfo ?? ""}>
+                    <span className="line-clamp-2">{r.threadAcc ? `${r.threadAcc.code ?? ""} ${r.threadAcc.colorway ?? ""}`.trim() || "—" : r.threadInfo || "—"}</span>
                   </td>
-                  <td className="px-2 py-2">
-                    <span className="text-slate-700">{r.mainFabric?.code ?? "—"}</span>
-                  </td>
-                  <td className="px-2 py-2 text-slate-700">{r.mainFabric?.colorway ?? "—"}</td>
-                  <td className="px-2 py-2 text-slate-700">{r.interlining?.colorway ?? "—"}</td>
-                  <td className="px-2 py-2 text-slate-700">{r.pocket?.colorway ?? "—"}</td>
-                  <td className="max-w-[140px] truncate px-2 py-2 text-slate-600" title={r.threadAcc?.notes ?? r.threadInfo ?? ""}>
-                    {r.threadAcc ? `${r.threadAcc.code ?? ""} ${r.threadAcc.colorway ?? ""}`.trim() || "—" : r.threadInfo || "—"}
-                  </td>
-                  <td className="px-2 py-2">
+                  <td className={td}>
                     <ReadyBadge ready={r.accessoriesReady} missing={r.accessoriesMissing} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className={td}>
+                    <EditableCell value={r.currentProgress} placeholder="—" className="w-full min-w-[180px]" onSave={(v) => saveOrder(r.id, { current_progress: v })} />
+                  </td>
+                  <td className={td}>
+                    <EditableCell type="date" value={r.deliveryDate} onSave={(v) => saveOrder(r.id, { delivery_date: v })} />
+                  </td>
+                  <td className={td}>
+                    <EditableCell value={r.notes} placeholder="—" className="w-full min-w-[110px]" onSave={(v) => saveOrder(r.id, { notes: v })} />
+                  </td>
+                  <td className={td}>
                     <StageBadge stage={r.stage} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className={td}>
                     <EditableCell type="select" options={ORDER_STATUS} value={r.status} onSave={(v) => saveOrder(r.id, { status: v })} />
                   </td>
-                  <td className="px-2 py-2">
-                    <Link href={`/orders/${r.id}/print`} className="inline-flex rounded p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600" title="打印大货单">
-                      <Printer className="h-3.5 w-3.5" />
-                    </Link>
+                  <td className={cn(td, "text-center")}>
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => toggle(r.id)} className="rounded p-1 text-slate-400 hover:text-indigo-600" title="展开明细">
+                        {expanded.has(r.id) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                      </button>
+                      <Link href={`/orders/${r.id}/print`} className="rounded p-1 text-slate-400 hover:text-indigo-600" title="打印大货单">
+                        <Printer className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
                 {expanded.has(r.id) && (
-                  <tr className="bg-slate-50/60">
-                    <td colSpan={18} className="px-4 py-3">
+                  <tr className={idx % 2 ? "bg-slate-50/60" : "bg-white"}>
+                    <td colSpan={22} className="border border-slate-300 px-4 py-3">
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div>
-                          <h4 className="mb-2 text-xs font-bold text-slate-700">🧵 辅料明细（点击状态可直接改）</h4>
+                          <h4 className="mb-2 text-xs font-bold text-slate-700">🧵 辅料明细（状态可直接改）</h4>
                           {r.accessories.length === 0 ? (
                             <p className="text-xs text-slate-400">暂无辅料记录</p>
                           ) : (
@@ -315,28 +335,17 @@ function OrderBoard() {
                                   <span className="text-slate-500">{a.code ?? ""} {a.spec ?? ""}</span>
                                   <span className="text-slate-500">{a.colorway ?? ""}</span>
                                   <span className="text-slate-500">{a.supplier ?? ""}</span>
-                                  <EditableCell
-                                    type="select"
-                                    options={TRACK_OPTIONS}
-                                    value={a.trackingStatus}
-                                    className="ml-auto"
-                                    onSave={(v) => saveAccessory(a.id, { tracking_status: v })}
-                                  />
-                                  <EditableCell
-                                    value={a.notes}
-                                    placeholder="备注"
-                                    className="w-44"
-                                    onSave={(v) => saveAccessory(a.id, { notes: v })}
-                                  />
+                                  <EditableCell type="select" options={TRACK_OPTIONS} value={a.trackingStatus} className="ml-auto" onSave={(v) => saveAccessory(a.id, { tracking_status: v })} />
+                                  <EditableCell value={a.notes} placeholder="备注" className="w-44" onSave={(v) => saveAccessory(a.id, { notes: v })} />
                                 </div>
                               ))}
                             </div>
                           )}
                         </div>
                         <div>
-                          <h4 className="mb-2 text-xs font-bold text-slate-700">📋 大货进度里程碑（点击状态可直接改）</h4>
+                          <h4 className="mb-2 text-xs font-bold text-slate-700">📋 大货进度里程碑（状态可直接改）</h4>
                           {r.milestones.length === 0 ? (
-                            <p className="text-xs text-slate-400">暂无里程碑，可在样式详情页维护</p>
+                            <p className="text-xs text-slate-400">暂无里程碑</p>
                           ) : (
                             <div className="space-y-1">
                               {r.milestones.map((m) => (
@@ -349,13 +358,12 @@ function OrderBoard() {
                               ))}
                             </div>
                           )}
-                          <h4 className="mb-1 mt-3 text-xs font-bold text-slate-700">📝 当前核心进度 / 生产方式 / 风险</h4>
-                          <div className="space-y-1.5">
-                            <EditableCell value={r.currentProgress} placeholder="当前核心进度" className="w-full" onSave={(v) => saveOrder(r.id, { current_progress: v })} />
-                            <div className="flex gap-3">
-                              <EditableCell value={r.productionType} placeholder="生产方式" className="w-56" onSave={(v) => saveOrder(r.id, { production_type: v })} />
-                              <EditableCell type="select" options={RISK_OPTIONS} value={r.riskLevel} onSave={(v) => saveOrder(r.id, { risk_level: v })} />
-                            </div>
+                          <h4 className="mb-1 mt-3 text-xs font-bold text-slate-700">📝 生产方式 / 风险 / 用线用布</h4>
+                          <div className="flex flex-wrap gap-3">
+                            <EditableCell value={r.productionType} placeholder="生产方式" className="w-56" onSave={(v) => saveOrder(r.id, { production_type: v })} />
+                            <EditableCell type="select" options={RISK_OPTIONS} value={r.riskLevel} onSave={(v) => saveOrder(r.id, { risk_level: v })} />
+                            <EditableCell value={r.threadInfo} placeholder="用线" className="w-48" onSave={(v) => saveOrder(r.id, { thread_info: v })} />
+                            <EditableCell value={r.fabricSummary} placeholder="用布" className="w-56" onSave={(v) => saveOrder(r.id, { fabric_summary: v })} />
                           </div>
                         </div>
                       </div>
@@ -395,7 +403,10 @@ function PreBoard() {
     setError("");
     try {
       const res = await api<{ data: PreRow[] }>("/api/preproduction");
-      setRows(res.data ?? []);
+      const sorted = [...(res.data ?? [])].sort((a, b) =>
+        (a.sample_date ?? "").localeCompare(b.sample_date ?? "") || (a.sample_no ?? "").localeCompare(b.sample_no ?? ""),
+      );
+      setRows(sorted);
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -445,13 +456,14 @@ function PreBoard() {
     }
   };
 
-  const inputCls =
-    "w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
+  const inputCls = "w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
+  const th = "border border-slate-300 bg-slate-100 px-2 py-2 text-left text-[11px] font-semibold text-slate-600";
+  const td = "border border-slate-300 px-2 py-1.5 align-middle";
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-slate-500">共 {rows.length} 条产前版 · 按下单/办单日期倒序 · 全部可在线编辑，可随时新增</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-500">共 {rows.length} 条产前版/开发板 · 按开单日排列 · 全部可在线编辑，可新增</p>
         <div className="flex gap-2">
           <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> 刷新
@@ -463,7 +475,7 @@ function PreBoard() {
       </div>
       {showAdd && (
         <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
-          <h3 className="mb-3 text-sm font-bold text-indigo-900">新增产前版（款号不存在会自动建档）</h3>
+          <h3 className="mb-3 text-sm font-bold text-indigo-900">新增产前版 / 开发板（款号不存在会自动建档）</h3>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <input className={inputCls} placeholder="款号 *（如 24Q1109JE3231）" value={form.style_no} onChange={(e) => setForm({ ...form, style_no: e.target.value })} />
             <input className={inputCls} placeholder="颜色" value={form.colorway} onChange={(e) => setForm({ ...form, colorway: e.target.value })} />
@@ -479,71 +491,75 @@ function PreBoard() {
                 <option key={v}>{v}</option>
               ))}
             </select>
-            <input className={inputCls} placeholder="面辅料整理（如：主面料已调拨，朴/袋布已备）" value={form.fabric_summary} onChange={(e) => setForm({ ...form, fabric_summary: e.target.value })} />
-            <input className={inputCls} placeholder="备注" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <input className={inputCls} placeholder="布种/面辅料（如 M13557/SK9743）" value={form.fabric_summary} onChange={(e) => setForm({ ...form, fabric_summary: e.target.value })} />
+            <input className={inputCls} placeholder="备注（可写 寄客日：xx）" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
           <div className="mt-3 flex gap-2">
-            <button onClick={add} className="rounded-md bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
-              保存
-            </button>
-            <button onClick={() => setShowAdd(false)} className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs text-slate-600">
-              取消
-            </button>
+            <button onClick={add} className="rounded-md bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">保存</button>
+            <button onClick={() => setShowAdd(false)} className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-xs text-slate-600">取消</button>
           </div>
         </div>
       )}
       {error && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div>}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200 text-xs">
-          <thead className="bg-slate-50">
-            <tr className="text-left text-slate-500">
-              <th className="px-2 py-2 font-medium">日期</th>
-              <th className="px-2 py-2 font-medium">款号</th>
-              <th className="px-2 py-2 font-medium">颜色</th>
-              <th className="px-2 py-2 font-medium">样板单号</th>
-              <th className="px-2 py-2 font-medium">版本</th>
-              <th className="px-2 py-2 font-medium">进度</th>
-              <th className="px-2 py-2 font-medium">面辅料整理</th>
-              <th className="px-2 py-2 font-medium">备注</th>
-              <th className="px-2 py-2 font-medium">打印</th>
-              <th className="px-2 py-2"></th>
+      <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              <th className={cn(th, "sticky left-0 z-20 min-w-[28px] text-center")}>#</th>
+              <th className={cn(th, "min-w-[44px]")}>图片</th>
+              <th className={cn(th, "sticky left-[72px] z-20 min-w-[120px]")}>款号</th>
+              <th className={cn(th, "min-w-[140px]")}>款式名称</th>
+              <th className={cn(th, "min-w-[90px]")}>颜色</th>
+              <th className={cn(th, "min-w-[90px]")}>办类/版本</th>
+              <th className={cn(th, "min-w-[100px]")}>单据编号</th>
+              <th className={cn(th, "min-w-[76px]")}>开单日</th>
+              <th className={cn(th, "min-w-[160px]")}>布种/面辅料</th>
+              <th className={cn(th, "min-w-[200px]")}>进度</th>
+              <th className={cn(th, "min-w-[220px]")}>备注/寄客日</th>
+              <th className={cn(th, "min-w-[44px]")}>打印</th>
+              <th className={cn(th, "min-w-[36px]")}></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50/70">
-                <td className="px-2 py-2">
-                  <EditableCell type="date" value={r.sample_date} onSave={(v) => save(r.id, { sample_date: v })} />
+          <tbody>
+            {rows.map((r, idx) => (
+              <tr key={r.id} className={idx % 2 ? "bg-slate-50/60" : "bg-white"}>
+                <td className={cn(td, "sticky left-0 z-10 bg-inherit text-center text-slate-400")}>{idx + 1}</td>
+                <td className={td}>
+                  <ImageCell src={r.styles?.[0]?.image_url ?? null} styleId={r.style_id} onUpdated={load} />
                 </td>
-                <td className="px-2 py-2">
+                <td className={cn(td, "sticky left-[72px] z-10 bg-inherit")}>
                   <Link href={`/styles/${r.style_id}`} className="font-semibold text-indigo-600 hover:underline">
                     {r.styles?.[0]?.style_no ?? "—"}
                   </Link>
                 </td>
-                <td className="px-2 py-2">
+                <td className={td}>{r.styles?.[0]?.style_name ?? "—"}</td>
+                <td className={td}>
                   <EditableCell value={r.colorway} onSave={(v) => save(r.id, { colorway: v })} />
                 </td>
-                <td className="px-2 py-2">
-                  <EditableCell value={r.sample_no} onSave={(v) => save(r.id, { sample_no: v })} />
-                </td>
-                <td className="px-2 py-2">
+                <td className={td}>
                   <EditableCell type="select" options={VERSION_OPTIONS} value={r.version} onSave={(v) => save(r.id, { version: v })} />
                 </td>
-                <td className="px-2 py-2">
-                  <EditableCell type="select" options={PROGRESS_OPTIONS} value={r.progress ?? "待排期"} onSave={(v) => save(r.id, { progress: v })} />
+                <td className={td}>
+                  <EditableCell value={r.sample_no} onSave={(v) => save(r.id, { sample_no: v })} />
                 </td>
-                <td className="px-2 py-2">
-                  <EditableCell value={r.fabric_summary} placeholder="未填" className="w-64" onSave={(v) => save(r.id, { fabric_summary: v })} />
+                <td className={td}>
+                  <EditableCell type="date" value={r.sample_date} onSave={(v) => save(r.id, { sample_date: v })} />
                 </td>
-                <td className="px-2 py-2">
-                  <EditableCell value={r.notes} placeholder="—" className="w-48" onSave={(v) => save(r.id, { notes: v })} />
+                <td className={td}>
+                  <EditableCell value={r.fabric_summary} placeholder="—" className="min-w-[140px]" onSave={(v) => save(r.id, { fabric_summary: v })} />
                 </td>
-                <td className="px-2 py-2">
-                  <Link href={`/preproduction/${r.id}/print`} className="inline-flex rounded p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600" title="打印产前版样板单">
+                <td className={td}>
+                  <EditableCell value={r.progress ?? "待排期"} placeholder="—" className="min-w-[180px]" onSave={(v) => save(r.id, { progress: v })} />
+                </td>
+                <td className={td}>
+                  <EditableCell value={r.notes} placeholder="—" className="min-w-[200px]" onSave={(v) => save(r.id, { notes: v })} />
+                </td>
+                <td className={cn(td, "text-center")}>
+                  <Link href={`/preproduction/${r.id}/print`} className="inline-flex rounded p-1 text-slate-400 hover:text-indigo-600" title="打印">
                     <Printer className="h-3.5 w-3.5" />
                   </Link>
                 </td>
-                <td className="px-2 py-2">
+                <td className={cn(td, "text-center")}>
                   <button onClick={() => remove(r.id)} className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-500" title="删除">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -566,9 +582,7 @@ export default function BoardPage() {
     <div>
       <div className="mb-5">
         <h1 className="text-xl font-bold text-slate-900">追踪总表</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          大货 & 产前版一站式在线表格：所有单元格直接点击修改，自动保存到云端
-        </p>
+        <p className="mt-1 text-sm text-slate-500">大货 & 产前版一站式在线表格：点单元格直接改，自动保存云端；点图片格上传款式图</p>
       </div>
       <div className="mb-4 flex gap-1 rounded-lg bg-slate-200/70 p-1">
         {(
