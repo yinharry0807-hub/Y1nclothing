@@ -10,24 +10,19 @@ export const metadata = { title: "款式库 - 服装跟单智能工作台" };
 export default async function StylesPage() {
   const supabase = await createClient();
 
-  const [{ data: styles }, fabricRes, accessoryRes] = await Promise.all([
-    supabase
-      .from("styles")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .limit(200),
-    supabase.from("fabric_info").select("style_id"),
-    supabase.from("accessory_info").select("style_id"),
-  ]);
+  // 单次查询：通过外键内嵌统计面料/辅料数量，避免多次往返
+  const { data: styles } = await supabase
+    .from("styles")
+    .select("*, fabric_info(count), accessory_info(count)")
+    .order("updated_at", { ascending: false })
+    .limit(200);
 
   const fabricCounts = new Map<string, number>();
-  (fabricRes.data ?? []).forEach((f) =>
-    fabricCounts.set(f.style_id, (fabricCounts.get(f.style_id) ?? 0) + 1),
-  );
   const accessoryCounts = new Map<string, number>();
-  (accessoryRes.data ?? []).forEach((a) =>
-    accessoryCounts.set(a.style_id, (accessoryCounts.get(a.style_id) ?? 0) + 1),
-  );
+  (styles ?? []).forEach((s: any) => {
+    fabricCounts.set(s.id, (s.fabric_info as any[])?.[0]?.count ?? 0);
+    accessoryCounts.set(s.id, (s.accessory_info as any[])?.[0]?.count ?? 0);
+  });
 
   return (
     <div>

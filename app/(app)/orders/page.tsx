@@ -8,15 +8,17 @@ export const metadata = { title: "大货单 - 服装跟单智能工作台" };
 
 export default async function OrdersPage() {
   const supabase = await createClient();
-  const [{ data: orders }, { data: styles }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("*")
-      .order("delivery_date", { ascending: false })
-      .limit(300),
-    supabase.from("styles").select("id,style_no"),
-  ]);
-  const styleMap = new Map((styles ?? []).map((s) => [s.id, s.style_no]));
+  // 单次查询：内嵌款式编号，避免二次查询
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("*, styles(style_no)")
+    .order("delivery_date", { ascending: false })
+    .limit(300);
+  const styleMap = new Map(
+    (orders ?? [])
+      .filter((o: any) => o.styles?.[0]?.style_no)
+      .map((o: any) => [o.style_id, o.styles[0].style_no]),
+  );
 
   return (
     <div>
