@@ -215,27 +215,5 @@ export async function POST(request: Request) {
   if (!reply) {
     return NextResponse.json({ reply: "AI 没有返回内容，请重试。" }, { status: 200 });
   }
-  return NextResponse.json({
-    reply,
-    v: 3,
-    debug: {
-      styles: styles.length,
-      orders: orders.length,
-      fabrics: fabrics.length,
-      accessories: accessories.length,
-      docs: docs.length,
-      stylesErr: stylesRes.error?.message ?? null,
-      ordersErr: ordersRes.error?.message ?? null,
-      fabricsErr: fabricsRes.error?.message ?? null,
-      accessoriesErr: accessoriesRes.error?.message ?? null,
-      docsErr: docsRes.error?.message ?? null,
-      moreFabricsErr: moreFabricsRes?.error?.message ?? null,
-      moreAccessoriesErr: moreAccessoriesRes?.error?.message ?? null,
-      moreMilestonesErr: moreMilestonesRes?.error?.message ?? null,
-      allFabrics: allFabrics.length,
-      allAccessories: allAccessories.length,
-      hasData,
-      contextLen: context.length,
-    },
-  });
+  return NextResponse.json({ reply });
 }
