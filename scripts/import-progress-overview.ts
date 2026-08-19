@@ -21,7 +21,10 @@ const FILE =
   process.argv[2] ??
   "D:\\xwechat_files\\wxid_j1gq2mvkdj2v22_5bac\\msg\\file\\2026-07\\Halara全部进度总览(1).xlsx";
 
-const clean = (v: unknown): string => String(v ?? "").trim();
+const clean = (v: unknown): string =>
+  String(v ?? "")
+    .replace(/=DISPIMG\([^)]*\)/g, "")
+    .trim();
 const STYLE_RE = /(AI\d{2}[A-Z]\d[A-Z]{2}\d{3,}[A-Za-z]*|\d{2}[A-Z]{1,2}\d{4}[A-Z]{2}\d{2,4}[A-Za-z]*)/;
 function extractStyleNo(t: string): string | null {
   return t.match(STYLE_RE)?.[1]?.toUpperCase() ?? null;
