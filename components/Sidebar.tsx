@@ -11,6 +11,7 @@ import {
   Ruler,
   Settings,
   Shirt,
+  Table2,
   Upload,
   X,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "工作台", icon: LayoutDashboard },
   { href: "/upload", label: "资料导入", icon: Upload },
   { href: "/documents", label: "资料库", icon: FolderOpen },
+  { href: "/board", label: "追踪总表", icon: Table2 },
   { href: "/styles", label: "款式库", icon: Shirt },
   { href: "/accessories", label: "辅料追踪", icon: PackageSearch },
   { href: "/orders", label: "大货单", icon: ClipboardList },

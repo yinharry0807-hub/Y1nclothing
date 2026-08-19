@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopSearch } from "./TopSearch";
+import { ChatWidget } from "./ChatWidget";
 
 export function AppShell({
   children,
@@ -36,6 +37,7 @@ export function AppShell({
         </header>
         <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
       </div>
+      <ChatWidget />
     </div>
   );
 }
