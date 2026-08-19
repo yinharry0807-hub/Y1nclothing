@@ -29,6 +29,32 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const SKIP_EXTENSIONS = ["dxf", "prj", "rul", "plt", "dwg"];
 
+/** 把相对路径转成 Supabase Storage 允许的 ASCII 对象键（确定性、无冲突） */
+function storageKey(relative: string): string {
+  const safe = relative
+    .split("/")
+    .map((seg) => seg.replace(/[^A-Za-z0-9._-]/g, "_").replace(/_+/g, "_"))
+    .join("/");
+  return `bulk/${safe}`;
+}
+
+/** 网络操作重试：Supabase 偶发 fetch failed / 超时，重试 3 次 */
+async function withRetry(fn: () => any, label: string): Promise<any> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastError = e;
+      if (attempt < 3) {
+        console.log(`  [重试 ${attempt}/3] ${label}`);
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function main() {
   const folderArg = process.argv[2];
   const folder = folderArg
@@ -63,6 +89,8 @@ async function main() {
       if (entry.isDirectory()) {
         await walk(full);
       } else if (entry.isFile()) {
+        // 跳过 Excel 临时锁文件（~$ 开头）
+        if (entry.name.startsWith("~$")) continue;
         const ext = getExtension(entry.name);
         if (ALLOWED_EXTENSIONS.includes(ext)) files.push(full);
       }
@@ -83,11 +111,15 @@ async function main() {
     const ext = getExtension(file);
 
     // 已导入过的文件跳过（按原始路径去重）
-    const { data: existing } = await supabase
-      .from("documents")
-      .select("id")
-      .eq("source_path", relative)
-      .maybeSingle();
+    const { data: existing } = await withRetry(
+      () =>
+        supabase
+          .from("documents")
+          .select("id")
+          .eq("source_path", relative)
+          .maybeSingle(),
+      `查询已存在：${relative}`,
+    );
     if (existing) {
       skipped++;
       console.log(`[跳过] 已存在：${relative}`);
@@ -98,21 +130,29 @@ async function main() {
       const buffer = await fs.readFile(file);
       const parsed = await parseFile(file, buffer);
 
-      const storagePath = `bulk/${relative}`;
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(storagePath, buffer, { upsert: true });
+      const storagePath = storageKey(relative);
+      const { error: uploadError } = await withRetry(
+        () =>
+          supabase.storage
+            .from("documents")
+            .upload(storagePath, buffer, { upsert: true }),
+        `上传：${relative}`,
+      );
       if (uploadError) throw uploadError;
 
-      const { error: insertError } = await supabase.from("documents").insert({
-        file_name: path.basename(file),
-        file_type: ext,
-        file_size: buffer.length,
-        original_text: parsed.text,
-        storage_path: storagePath,
-        status: parsed.status,
-        source_path: relative,
-      });
+      const { error: insertError } = await withRetry(
+        () =>
+          supabase.from("documents").insert({
+            file_name: path.basename(file),
+            file_type: ext,
+            file_size: buffer.length,
+            original_text: parsed.text,
+            storage_path: storagePath,
+            status: parsed.status,
+            source_path: relative,
+          }),
+        `入库：${relative}`,
+      );
       if (insertError) throw insertError;
 
       ok++;
