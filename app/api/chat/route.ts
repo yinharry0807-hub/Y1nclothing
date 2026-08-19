@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     await Promise.all([
       relatedStyleIds.length
         ? supabase.from("fabric_info").select("*").in("style_id", relatedStyleIds).limit(200)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
       relatedStyleIds.length || relatedOrderIds.length
         ? supabase
             .from("accessory_info")
@@ -93,13 +93,13 @@ export async function POST(request: Request) {
                 : `style_id.in.(${relatedStyleIds.join(",")})`,
             )
             .limit(300)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
       relatedOrderIds.length
         ? supabase.from("order_milestones").select("*").in("order_id", relatedOrderIds).order("sort_order")
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
       relatedStyleIds.length
         ? supabase.from("styles").select("id,style_no").in("id", relatedStyleIds)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
   const styleNoMap = new Map((styleMapRes?.data ?? []).map((s) => [s.id, s.style_no]));
