@@ -4,8 +4,25 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function sanitize(q: string): string {
-  return q.replace(/[%_,()*"\\]/g, " ").trim();
+/** 从问题里提取数据库搜索关键词：款号 / PO号 / 分词 / 3字词 */
+function extractKeywords(message: string): string[] {
+  const out = new Set<string>();
+  const add = (s: string) => {
+    const t = s.trim();
+    if (t.length >= 2 && t.length <= 8 && !/^(这个|那个|什么|怎么|多少|哪些|是否|还是|请问|有没有|的|了|吗|呢|和|与|及)$/.test(t)) {
+      out.add(t);
+    }
+  };
+  add(message);
+  for (const m of message.matchAll(/(?:AI)?\d{2}[A-Z]{1,2}\d{4}[A-Z]{2}\d{2,}[A-Za-z]*/g)) add(m[0]);
+  for (const m of message.matchAll(/\b\d{6,8}\b/g)) add(m[0]);
+  for (const t of message.split(/[\s,，。！？!?、；;:：()（）"'“”\-—]+/)) {
+    if (t.length <= 8) add(t);
+    if (t.length > 4) {
+      for (let i = 0; i <= t.length - 3; i++) add(t.slice(i, i + 3));
+    }
+  }
+  return [...out].slice(0, 12);
 }
 
 export async function POST(request: Request) {
@@ -28,8 +45,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ reply: "请先输入问题。" }, { status: 200 });
   }
 
-  const q = sanitize(message);
-  const like = `%${q}%`;
+  const candidates = extractKeywords(message);
+  if (candidates.length === 0) {
+    return NextResponse.json({ reply: "我没听懂你的问题，请换个说法，例如：24Q1109JE3231 的面料有哪些？" }, { status: 200 });
+  }
+  const like = (c: string) => `%${c}%`;
+  const orClause = (cols: string[]) =>
+    candidates
+      .map((c) => cols.map((col) => `${col}.ilike.${like(c)}`).join(","))
+      .join(",");
 
   // 1. 第一轮：按关键词检索相关资料（真实数据，绝不编造）
   const [stylesRes, ordersRes, fabricsRes, accessoriesRes, docsRes] =
@@ -37,27 +61,27 @@ export async function POST(request: Request) {
       supabase
         .from("styles")
         .select("id,style_no,style_name,customer_style_no,category,status,notes")
-        .or(`style_no.ilike.${like},style_name.ilike.${like},customer_style_no.ilike.${like},notes.ilike.${like}`)
+        .or(orClause(["style_no", "style_name", "customer_style_no", "notes"]))
         .limit(8),
       supabase
         .from("orders")
         .select("id,style_id,style_no,po_no,colorway,quantity,target_qty,delivery_date,status,current_progress,risk_level,thread_info,fabric_summary")
-        .or(`po_no.ilike.${like},style_no.ilike.${like},colorway.ilike.${like},order_no.ilike.${like}`)
+        .or(orClause(["po_no", "style_no", "colorway", "order_no"]))
         .limit(8),
       supabase
         .from("fabric_info")
         .select("style_id,fabric_name,material_code,category,composition,colorway,usage_per_piece,unit_price,supplier,notes")
-        .or(`fabric_name.ilike.${like},material_code.ilike.${like},composition.ilike.${like},supplier.ilike.${like},category.ilike.${like}`)
+        .or(orClause(["fabric_name", "material_code", "composition", "supplier", "category"]))
         .limit(8),
       supabase
         .from("accessory_info")
         .select("style_id,order_id,accessory_name,material_code,spec,colorway,quantity,supplier,tracking_status,order_date,expected_arrival,actual_arrival,notes")
-        .or(`accessory_name.ilike.${like},material_code.ilike.${like},spec.ilike.${like},supplier.ilike.${like}`)
+        .or(orClause(["accessory_name", "material_code", "spec", "supplier"]))
         .limit(8),
       supabase
         .from("documents")
         .select("file_name,upload_time,original_text")
-        .or(`file_name.ilike.${like},original_text.ilike.${like}`)
+        .or(orClause(["file_name", "original_text"]))
         .limit(3),
     ]);
 
