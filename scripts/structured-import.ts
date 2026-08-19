@@ -28,6 +28,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
 const ARGS = process.argv.slice(2);
 const ONLY_PREPRODUCTION = ARGS.includes("--only-preproduction");
+const SKIP_PREPRODUCTION = ARGS.includes("--skip-preproduction");
 const FOLDER_ARG = ARGS.find((a) => !a.startsWith("--"));
 const ROOT = FOLDER_ARG ?? path.join(os.homedir(), "Desktop", "尹锐洋开发资料");
 
@@ -146,21 +147,20 @@ async function upsertOrder(o: {
   );
   if (data?.id) {
     orderHits++;
+    // 已存在订单：只覆盖传入的非空值，避免把已有数据清空
+    const update: Record<string, unknown> = {};
+    const map: Record<string, unknown> = {
+      fit: o.fit, colorway: o.colorway, quantity: o.quantity, target_qty: o.targetQty,
+      delivery_date: o.deliveryDate, production_type: o.productionType,
+      current_progress: o.currentProgress, risk_level: o.riskLevel,
+      thread_info: o.threadInfo, fabric_summary: o.fabricSummary, order_no: o.orderNo,
+    };
+    for (const [k, v] of Object.entries(map)) {
+      if (v != null && v !== "") update[k] = v;
+    }
     await supabase
       .from("orders")
-      .update({
-        fit: o.fit ?? undefined,
-        colorway: o.colorway ?? undefined,
-        quantity: o.quantity ?? undefined,
-        target_qty: o.targetQty ?? undefined,
-        delivery_date: o.deliveryDate ?? undefined,
-        production_type: o.productionType ?? undefined,
-        current_progress: o.currentProgress ?? undefined,
-        risk_level: o.riskLevel ?? undefined,
-        thread_info: o.threadInfo ?? undefined,
-        fabric_summary: o.fabricSummary ?? undefined,
-        order_no: o.orderNo ?? undefined,
-      })
+      .update(update)
       .eq("id", data.id);
     return data.id as string;
   }
@@ -361,18 +361,24 @@ async function importFabricAccessoryCard() {
     const ws = wb.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "", raw: false });
     const r0 = rows[0] as unknown[];
+    // 第1行：0=单号/客人款号  3=品名  9=货期  12=总数量
     const po = clean(r0[0]).match(/(\d{6,8})/)?.[1] ?? null;
     const title = clean(r0[3]);
     const styleNo = extractStyleNo(title) ?? extractStyleNo(sheetName);
     if (!styleNo) continue;
-    const totalQty = num(title.match(/总数量[:：]?\s*(\d+)/)?.[1]) ?? null;
-    const delivery = toDate(title.match(/货期[:：]?\s*([^\s|]+)/)?.[1]) ?? null;
+    const totalQty = num(clean(r0[12]).match(/(\d+)/)?.[1]) ?? null;
+    const delivery = toDate(clean(r0[9]).replace(/^货期[:：]?\s*/, "")) ?? null;
     const styleId = await upsertStyle(styleNo, { category: "牛仔裤" });
     if (!styleId) continue;
     let orderId: string | null = null;
     if (po) orderId = await upsertOrder({
       styleId, poNo: po, styleNo, quantity: totalQty, deliveryDate: delivery,
-      colorway: title.replace(styleNo, "").trim() || null,
+      colorway:
+        title
+          .replace(/^品名[:：]?\s*/, "")
+          .replace(styleNo, "")
+          .replace(/^\s*(petite|regular)\s*/i, "")
+          .trim() || null,
     });
     // 数据行从第 5 行起（跳过 序号/用途 表头行）
     for (let i = 4; i < rows.length; i++) {
@@ -392,27 +398,45 @@ async function importFabricAccessoryCard() {
       const isFabric = use.includes("裁剪") && !/(拉链|纽扣|线|唛|胶袋|吊牌|皮标|贴纸)/.test(name);
       if (isFabric) {
         const category = /袋布/.test(name) ? "袋布" : /朴/.test(name) ? "朴" : /毛毡/.test(name) ? "毛毡布" : "主身布";
-        const { error } = await supabase.from("fabric_info").insert({
+        const row = {
           style_id: styleId, order_id: orderId, material_code: materialCode || null,
           fabric_name: name, category, composition: composition || null,
           colorway: colorway2, unit: unit || null, usage_per_piece: usage || null,
           notes: notes || null, source: source || null, width: spec || null,
-        });
+        };
+        const { data: existingF } = await supabase
+          .from("fabric_info")
+          .select("id")
+          .eq("style_id", styleId)
+          .eq("fabric_name", name)
+          .maybeSingle();
+        const { error } = existingF?.id
+          ? await supabase.from("fabric_info").update(row).eq("id", existingF.id)
+          : await supabase.from("fabric_info").insert(row);
         if (error) console.error(`  [面料失败] ${name}: ${error.message}`);
-        else {
+        else if (!existingF?.id) {
           cardFabrics++;
           fabricCount++;
         }
       } else {
-        const { error } = await supabase.from("accessory_info").insert({
+        const row = {
           style_id: styleId, order_id: orderId, material_code: materialCode || null,
           accessory_name: name, colorway: colorway2, spec: spec || null,
           unit: unit || null, usage_per_piece: usage || null,
           quantity: num(total), notes: notes || null, source: source || null,
           tracking_status: inferTracking(notes ?? ""),
-        });
+        };
+        const { data: existingA } = await supabase
+          .from("accessory_info")
+          .select("id")
+          .eq("style_id", styleId)
+          .eq("accessory_name", name)
+          .maybeSingle();
+        const { error } = existingA?.id
+          ? await supabase.from("accessory_info").update(row).eq("id", existingA.id)
+          : await supabase.from("accessory_info").insert(row);
         if (error) console.error(`  [辅料失败] ${name}: ${error.message}`);
-        else {
+        else if (!existingA?.id) {
           cardAccessories++;
           accessoryCount++;
         }
@@ -536,7 +560,9 @@ async function main() {
     await importFabricAccessoryCard();
     await importAccessoryTracking();
   }
-  await importPreproduction();
+  if (!SKIP_PREPRODUCTION) {
+    await importPreproduction();
+  }
   console.log("\n================= 汇总 =================");
   console.log(`款式：新建 ${styleUpserts}，已有 ${styleHits}`);
   console.log(`订单：新建 ${orderUpserts}，已有 ${orderHits}`);
