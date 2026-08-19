@@ -191,5 +191,5 @@ export async function POST(request: Request) {
   if (!reply) {
     return NextResponse.json({ reply: "AI 没有返回内容，请重试。" }, { status: 200 });
   }
-  return NextResponse.json({ reply });
+  return NextResponse.json({ reply, v: 2 });
 }
