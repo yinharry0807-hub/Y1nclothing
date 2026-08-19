@@ -191,5 +191,19 @@ export async function POST(request: Request) {
   if (!reply) {
     return NextResponse.json({ reply: "AI 没有返回内容，请重试。" }, { status: 200 });
   }
-  return NextResponse.json({ reply, v: 2 });
+  return NextResponse.json({
+    reply,
+    v: 3,
+    debug: {
+      styles: styles.length,
+      orders: orders.length,
+      fabrics: fabrics.length,
+      accessories: accessories.length,
+      docs: docs.length,
+      allFabrics: allFabrics.length,
+      allAccessories: allAccessories.length,
+      hasData,
+      contextLen: context.length,
+    },
+  });
 }
