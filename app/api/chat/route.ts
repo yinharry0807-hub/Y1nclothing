@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   const relatedOrderIds = [
     ...new Set<string>(orders.map((o) => o.id as string)),
   ];
-  const [{ data: moreFabrics }, { data: moreAccessories }, { data: moreMilestones }, { data: styleMapRows }] =
+  const [moreFabricsRes, moreAccessoriesRes, moreMilestonesRes, styleMapRes] =
     await Promise.all([
       relatedStyleIds.length
         ? supabase.from("fabric_info").select("*").in("style_id", relatedStyleIds).limit(200)
@@ -102,10 +102,10 @@ export async function POST(request: Request) {
         : Promise.resolve({ data: [] }),
     ]);
 
-  const styleNoMap = new Map((styleMapRows ?? []).map((s) => [s.id, s.style_no]));
-  const allFabrics = [...fabrics, ...(moreFabrics ?? [])];
-  const allAccessories = [...accessories, ...(moreAccessories ?? [])];
-  const milestones = moreMilestones ?? [];
+  const styleNoMap = new Map((styleMapRes?.data ?? []).map((s) => [s.id, s.style_no]));
+  const allFabrics = [...fabrics, ...(moreFabricsRes?.data ?? [])];
+  const allAccessories = [...accessories, ...(moreAccessoriesRes?.data ?? [])];
+  const milestones = moreMilestonesRes?.data ?? [];
   const milestoneByOrder = new Map<string, any[]>();
   milestones.forEach((m) => {
     const arr = milestoneByOrder.get(m.order_id) ?? [];
@@ -200,6 +200,14 @@ export async function POST(request: Request) {
       fabrics: fabrics.length,
       accessories: accessories.length,
       docs: docs.length,
+      stylesErr: stylesRes.error?.message ?? null,
+      ordersErr: ordersRes.error?.message ?? null,
+      fabricsErr: fabricsRes.error?.message ?? null,
+      accessoriesErr: accessoriesRes.error?.message ?? null,
+      docsErr: docsRes.error?.message ?? null,
+      moreFabricsErr: moreFabricsRes?.error?.message ?? null,
+      moreAccessoriesErr: moreAccessoriesRes?.error?.message ?? null,
+      moreMilestonesErr: moreMilestonesRes?.error?.message ?? null,
       allFabrics: allFabrics.length,
       allAccessories: allAccessories.length,
       hasData,
